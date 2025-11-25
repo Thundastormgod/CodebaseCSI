@@ -1,0 +1,5 @@
+# Base requirements (zero dependencies for core functionality!)
+# The tool runs with zero external dependencies
+
+# Optional dependencies (uncomment if needed)
+# PyYAML>=6.0  # For YAML config file support
