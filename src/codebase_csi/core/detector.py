@@ -95,6 +95,20 @@ class AICodeDetector:
         # Security Analyzer - 20% weight (vulnerabilities 2-3x higher in AI code)
         self.register_analyzer('security', SecurityAnalyzer())
         
+        # Semantic Analyzer - 10% weight (comment quality, AI writing style)
+        try:
+            from codebase_csi.analyzers.semantic_analyzer import SemanticAnalyzer
+            self.register_analyzer('semantic', SemanticAnalyzer())
+        except ImportError:
+            logger.warning("Semantic analyzer not available")
+        
+        # Architectural Analyzer - 5% weight (SOLID violations, god classes)
+        try:
+            from codebase_csi.analyzers.architectural_analyzer import ArchitecturalAnalyzer
+            self.register_analyzer('architectural', ArchitecturalAnalyzer())
+        except ImportError:
+            logger.warning("Architectural analyzer not available")
+        
         logger.info(f"Registered {len(self.analyzers)} default analyzers")
     
     def register_analyzer(self, name: str, analyzer):

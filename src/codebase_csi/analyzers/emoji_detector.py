@@ -232,23 +232,39 @@ class EmojiDetector:
         if self.comment_patterns['line_comment'].match(line):
             return 'comment'
         
-        # Check if in docstring
+        # Check if in docstring (triple quotes)
         if '"""' in line or "'''" in line:
-            return 'docstring'
+            # More sophisticated check - ensure emoji is actually inside docstring
+            before_emoji = line[:position]
+            triple_double = before_emoji.count('"""')
+            triple_single = before_emoji.count("'''")
+            if triple_double % 2 == 1 or triple_single % 2 == 1:
+                return 'docstring'
         
         # Check if in string literal - improved detection
-        stripped = line.strip()
         before_emoji = line[:position]
         
-        # Count quotes in the part before emoji
-        # Handle escaped quotes properly
+        # Count unescaped quotes before emoji position
         double_quotes = 0
         single_quotes = 0
         i = 0
         while i < len(before_emoji):
-            if before_emoji[i] == '\\' and i + 1 < len(before_emoji):
-                i += 2  # Skip escaped character
+            if i > 0 and before_emoji[i-1] == '\\':
+                # Skip escaped character (but handle \\ properly)
+                escaped_count = 1
+                j = i - 2
+                while j >= 0 and before_emoji[j] == '\\':
+                    escaped_count += 1
+                    j -= 1
+                # If even number of backslashes, the quote is NOT escaped
+                if escaped_count % 2 == 0:
+                    if before_emoji[i] == '"':
+                        double_quotes += 1
+                    elif before_emoji[i] == "'":
+                        single_quotes += 1
+                i += 1
                 continue
+            
             if before_emoji[i] == '"':
                 double_quotes += 1
             elif before_emoji[i] == "'":
@@ -259,8 +275,8 @@ class EmojiDetector:
         if double_quotes % 2 == 1 or single_quotes % 2 == 1:
             return 'string'
         
-        # Check common string patterns
-        if '= "' in line or "= '" in line or 'message =' in line.lower():
+        # Check for f-strings
+        if before_emoji.rstrip().endswith(('f"', "f'", 'F"', "F'")):
             return 'string'
         
         # Default: in actual code (WORST CASE!)

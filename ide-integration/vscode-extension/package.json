@@ -1,0 +1,217 @@
+{
+  "name": "codebase-csi",
+  "displayName": "Codebase CSI - AI Code Detector",
+  "description": "Detect AI-generated code patterns in real-time with forensic analysis",
+  "version": "1.0.0",
+  "publisher": "thundastormgod",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Testing",
+    "Other"
+  ],
+  "keywords": [
+    "ai-detection",
+    "code-quality",
+    "security",
+    "copilot",
+    "chatgpt",
+    "forensics"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codebase-csi.scanFile",
+        "title": "CSI: Scan Current File",
+        "icon": "$(search)"
+      },
+      {
+        "command": "codebase-csi.scanWorkspace",
+        "title": "CSI: Scan Entire Workspace",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "codebase-csi.explainDetection",
+        "title": "CSI: Explain Detection",
+        "icon": "$(question)"
+      },
+      {
+        "command": "codebase-csi.autoFix",
+        "title": "CSI: Auto-Fix Issues",
+        "icon": "$(wrench)"
+      },
+      {
+        "command": "codebase-csi.toggleRealTime",
+        "title": "CSI: Toggle Real-Time Detection",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "codebase-csi.showReport",
+        "title": "CSI: Show Detailed Report",
+        "icon": "$(graph)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "codebase-csi.scanFile",
+          "group": "codebase-csi@1",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "codebase-csi.explainDetection",
+          "group": "codebase-csi@2",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "codebase-csi.autoFix",
+          "group": "codebase-csi@3",
+          "when": "editorTextFocus"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "codebase-csi.scanWorkspace",
+          "group": "codebase-csi@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codebase CSI",
+      "properties": {
+        "codebase-csi.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable Codebase CSI analysis"
+        },
+        "codebase-csi.realTimeDetection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable real-time detection as you type (may impact performance)"
+        },
+        "codebase-csi.confidenceThreshold": {
+          "type": "number",
+          "default": 0.4,
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Minimum confidence threshold for flagging code (0.0-1.0)"
+        },
+        "codebase-csi.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python executable with codebase-csi installed"
+        },
+        "codebase-csi.showInlineWarnings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline warnings in editor"
+        },
+        "codebase-csi.analyzers": {
+          "type": "array",
+          "default": ["emoji", "pattern", "statistical", "security", "semantic", "architectural"],
+          "description": "List of analyzers to enable",
+          "items": {
+            "type": "string",
+            "enum": ["emoji", "pattern", "statistical", "security", "semantic", "architectural"]
+          }
+        },
+        "codebase-csi.excludePatterns": {
+          "type": "array",
+          "default": ["**/node_modules/**", "**/venv/**", "**/__pycache__/**", "**/.git/**"],
+          "description": "File patterns to exclude from scanning"
+        },
+        "codebase-csi.autoFixOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically fix simple issues on file save"
+        }
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "codebase-csi-results",
+          "name": "Codebase CSI Results",
+          "icon": "$(search)"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codebase-csi",
+          "title": "Codebase CSI",
+          "icon": "$(search-view-icon)"
+        }
+      ]
+    },
+    "colors": [
+      {
+        "id": "codebaseCsi.highRisk",
+        "description": "Color for high-risk AI detections",
+        "defaults": {
+          "dark": "#ff6b6b",
+          "light": "#ff0000",
+          "highContrast": "#ff0000"
+        }
+      },
+      {
+        "id": "codebaseCsi.mediumRisk",
+        "description": "Color for medium-risk AI detections",
+        "defaults": {
+          "dark": "#ffd93d",
+          "light": "#ff8800",
+          "highContrast": "#ffaa00"
+        }
+      },
+      {
+        "id": "codebaseCsi.lowRisk",
+        "description": "Color for low-risk AI detections",
+        "defaults": {
+          "dark": "#6bcf7f",
+          "light": "#00aa00",
+          "highContrast": "#00ff00"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.3",
+    "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "child_process": "^1.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Thundastormgod/CodebaseCSI"
+  },
+  "bugs": {
+    "url": "https://github.com/Thundastormgod/CodebaseCSI/issues"
+  },
+  "license": "MIT"
+}

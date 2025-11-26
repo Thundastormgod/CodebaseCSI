@@ -93,20 +93,59 @@ venv.bak/
 *.pdf
 
 # ==========================================
+# VS CODE EXTENSION
+# ==========================================
+ide-integration/vscode-extension/node_modules/
+ide-integration/vscode-extension/out/
+ide-integration/vscode-extension/*.vsix
+ide-integration/vscode-extension/.vscode-test/
+
+# ==========================================
+# ML INTEGRATION
+# ==========================================
+ml-integration/models/
+ml-integration/data/
+ml-integration/__pycache__/
+ml-integration/**/__pycache__/
+
+# PyTorch model files
+*.pt
+*.pth
+*.onnx
+
+# Training checkpoints
+checkpoint_*.pt
+
+# ==========================================
+# NON-OFFICIAL DOCUMENTATION (Development Only)
+# ==========================================
+# These are internal planning/development docs - NOT for production
+
+# Root development docs
+ARCHITECTURE.md
+IMPLEMENTATION_SUMMARY.md
+IMPROVEMENTS.md
+QUICK_SETUP.md
+
+# VS Code extension internal docs
+ide-integration/vscode-extension/PUBLISHING_GUIDE.md
+
+# ML integration docs (internal planning)
+ml-integration/ML_INTEGRATION_PLAN.md
+ml-integration/README.md
+
+# ==========================================
 # PRODUCTION DOCUMENTATION STRUCTURE
 # ==========================================
 # ✅ Tracked in production:
 #    - README.md (root)
-#    - docs/official/ (all files)
-#      - CHANGELOG.md
-#      - CONTRIBUTING.md
-#      - CODE_OF_CONDUCT.md
-#      - SECURITY.md
 #    - LICENSE (root)
+#    - docs/official/ (all files)
+#    - ide-integration/vscode-extension/README.md
+#    - ide-integration/vscode-extension/CHANGELOG.md
 # 
 # ❌ NOT tracked (development only):
 #    - docs/development/ (all files)
-#    - All internal status reports
+#    - All internal planning documents
 #    - All implementation notes
-#    - All analysis documents
 # ==========================================

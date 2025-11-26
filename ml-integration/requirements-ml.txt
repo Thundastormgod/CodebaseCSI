@@ -1,0 +1,24 @@
+# ML Integration Requirements for Codebase CSI v2.0
+
+# Core ML frameworks
+torch>=2.0.0
+transformers>=4.30.0
+
+# Data processing
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Training utilities
+tqdm>=4.65.0
+
+# Model optimization (optional)
+onnx>=1.14.0
+onnxruntime>=1.15.0
+
+# API serving (optional)
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+
+# Data collection (optional)
+requests>=2.31.0

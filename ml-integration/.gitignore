@@ -1,0 +1,21 @@
+# ML Integration ignores
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Trained models (too large for git)
+models/*.pt
+models/*.pth
+models/*.onnx
+checkpoint_*.pt
+
+# Training data (too large for git)
+data/labeled/*.json
+data/raw/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual env
+venv/
+.venv/
