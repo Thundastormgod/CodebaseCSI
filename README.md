@@ -27,14 +27,16 @@ AI-generated code is everywhere, but it often introduces:
 
 ## ✨ Features
 
-### 🔬 Multi-Analyzer Detection Engine
+### 🔬 Multi-Analyzer Detection Engine (8 Analyzers)
 
-- **🛡️ Security Analyzer** (20%) - **UNIQUE!** Detects OWASP Top 10 vulnerabilities (SQL injection, XSS, hardcoded secrets)
-- **🎨 Pattern Analyzer** (25%) - Identifies generic naming, verbose comments, boolean traps, god functions
-- **📊 Statistical Analyzer** (20%) - Analyzes cyclomatic complexity, token diversity, nesting depth, code duplication
-- **😀 Emoji Analyzer** (15%) - Detects 30+ AI-common emoji patterns in code/comments
-- **🔬 Semantic Analyzer** (Roadmap) - Comment quality, AI writing patterns
-- **🏗️ Architectural Analyzer** (Roadmap) - SOLID principles, separation of concerns
+- **🎨 Pattern Analyzer** (25%) - Identifies generic naming, boilerplate code, redundant patterns
+- **📊 Statistical Analyzer** (20%) - Analyzes cyclomatic complexity, nesting depth, code duplication
+- **🛡️ Security Analyzer** (18%) - Detects OWASP Top 10 vulnerabilities (SQL injection, XSS, hardcoded secrets)
+- **⚠️ Antipattern Analyzer** (15%) - Bleeding edge deps, gold plating, magic numbers
+- **😀 Emoji Detector** (12%) - Detects 30+ AI-common emoji patterns in code/comments
+- **📝 Comment Analyzer** (5%) - Tutorial-style comments, over-explanation detection
+- **🏗️ Architectural Analyzer** (5%) - SOLID principles, god classes, circular imports
+- **🔬 Semantic Analyzer** - Context understanding, type inference, control flow
 
 ### 🎯 Enterprise-Ready
 
@@ -43,7 +45,7 @@ AI-generated code is everywhere, but it often introduces:
 - ✅ **Multiple Output Formats** - JSON, YAML, HTML, Markdown
 - ✅ **Zero Dependencies** - Pure Python stdlib, no external packages required
 - ✅ **Research-Backed** - Methods from Google Research, Stanford CS, MIT CSAIL, Berkeley, NYU Cybersecurity (2024)
-- ✅ **Production Tested** - 85 tests (74% passing), 96% code coverage for analyzers
+- ✅ **Production Tested** - 242 tests passing, 64% code coverage
 
 ### 🚀 Developer Experience
 
@@ -310,19 +312,95 @@ pipeline {
 
 ---
 
-## 📊 Detection Accuracy
+## 📊 Analyzer Weights & Design Targets
 
-| Analyzer | Accuracy | False Positive Rate | Speed |
-|----------|----------|---------------------|-------|
-| **Emoji** | 93% | 2% | 10,000 files/sec |
-| **Pattern** | 85% | 8% | 5,000 files/sec |
-| **Statistical** | 80% | 12% | 3,000 files/sec |
-| **Semantic** | 75% | 15% | 1,000 files/sec |
-| **Architectural** | 78% | 10% | 2,000 files/sec |
-| **Metadata** | 70% | 20% | 15,000 files/sec |
-| **Combined** | **95%** | **3%** | **1,000 files/sec** |
+Each analyzer contributes to the overall AI-detection confidence score based on its assigned weight:
 
-*Based on 10,000+ real-world samples*
+| Analyzer | Weight | Target Accuracy | Focus Area |
+|----------|--------|-----------------|------------|
+| **Pattern** | 25% | 85%+ | Generic names, boilerplate |
+| **Statistical** | 20% | 80%+ | Complexity, duplication |
+| **Security** | 18% | 90%+ | Vulnerabilities, secrets |
+| **Antipattern** | 15% | 85%+ | Bleeding edge, gold plating |
+| **Emoji** | 12% | 93%+ | Decorative emoji usage |
+| **Comment** | 5% | 88%+ | Over-explanation, tutorial style |
+| **Architectural** | 5% | 78%+ | Design violations |
+| **Combined** | **100%** | **85%+** | **Overall AI detection** |
+
+> **Note:** "Target Accuracy" represents design goals based on research, not runtime measurements. Actual scan results show confidence scores (0-100%) indicating likelihood of AI-generated code.
+
+---
+
+## 📈 Interpreting Scan Results
+
+When you run a scan, you'll receive a JSON report with actual measurements. Here's how to interpret the results:
+
+### Overall Confidence Score
+
+The **overall_confidence** is a weighted average of all analyzer scores:
+
+```
+Overall = (Pattern × 0.25) + (Statistical × 0.20) + (Security × 0.18) + 
+          (Antipattern × 0.15) + (Emoji × 0.12) + (Comment × 0.05) + 
+          (Architectural × 0.05)
+```
+
+### Risk Levels
+
+| Confidence | Risk Level | Interpretation |
+|------------|------------|----------------|
+| ≥75% | 🔴 **CRITICAL** | Very likely AI-generated, requires immediate review |
+| 55-74% | 🟠 **HIGH** | Probably AI-generated, recommend thorough review |
+| 35-54% | 🟡 **MEDIUM** | Possibly AI-assisted, spot-check recommended |
+| 15-34% | 🟢 **LOW** | Minor AI indicators, likely human-written |
+| <15% | ⚪ **MINIMAL** | No significant AI patterns detected |
+
+### Example Scan Output
+
+```json
+{
+  "summary": {
+    "total_files": 23,
+    "total_lines": 8372,
+    "overall_confidence": 0.363,
+    "risk_level": "MEDIUM"
+  },
+  "analyzer_scores": {
+    "Pattern": { "average": 0.684, "min": 0.0, "max": 0.95 },
+    "Statistical": { "average": 0.469, "min": 0.0, "max": 0.92 },
+    "Security": { "average": 0.016, "min": 0.0, "max": 0.34 },
+    "Emoji": { "average": 0.373, "min": 0.0, "max": 1.0 },
+    "Comment": { "average": 0.640, "min": 0.0, "max": 0.95 },
+    "Antipattern": { "average": 0.120, "min": 0.0, "max": 0.79 },
+    "Architectural": { "average": 0.024, "min": 0.0, "max": 0.12 }
+  },
+  "antipattern_summary": {
+    "bleeding_edge": 9,
+    "gold_plating": 32
+  }
+}
+```
+
+### What Each Score Means
+
+| Analyzer Score | Interpretation |
+|----------------|----------------|
+| **Pattern: 68.4%** | High - Many generic variable names (`data`, `result`, `temp`) detected |
+| **Statistical: 46.9%** | Medium - Some functions exceed complexity thresholds |
+| **Security: 1.6%** | Low - Minimal hardcoded secrets or vulnerabilities |
+| **Emoji: 37.3%** | Medium - Decorative emojis found in comments |
+| **Comment: 64.0%** | High - Tutorial-style or over-explanatory comments |
+| **Antipattern: 12.0%** | Low - Some over-engineering patterns |
+| **Architectural: 2.4%** | Low - Good separation of concerns |
+
+### Actionable Recommendations
+
+The report includes prioritized recommendations based on findings:
+
+1. **CRITICAL issues** - Address immediately (security vulnerabilities, severe complexity)
+2. **HIGH issues** - Review in next sprint (gold plating, magic numbers)
+3. **MEDIUM issues** - Track for improvement (verbose comments, generic naming)
+4. **LOW issues** - Nice to fix (minor style issues)
 
 ---
 
@@ -417,14 +495,14 @@ Codebase CSI is licensed under the [MIT License](LICENSE).
 
 ## 🗺️ Roadmap
 
-- [x] **v1.0** - Emoji detection with 93% accuracy (Released)
-- [ ] **v1.1** - Pattern + Statistical analyzers (Q1 2026)
-- [ ] **v1.2** - Semantic + Architectural analyzers (Q2 2026)
-- [ ] **v2.0** - ML model integration, 95% accuracy (Q2 2026)
-- [ ] **v2.1** - Node.js/TypeScript implementation (Q3 2026)
-- [ ] **v3.0** - Rust core with 100x performance (Q4 2026)
+- [x] **v1.0** - Core detection engine (Released)
+- [x] **v1.5** - 8 analyzers: Pattern, Statistical, Security, Emoji, Comment, Antipattern, Architectural, Semantic
+- [x] **v2.0** - Enterprise JSON reporting, CI/CD integration (Current)
+- [ ] **v2.1** - VS Code extension integration (Q1 2026)
+- [ ] **v2.2** - ML model enhancement, 95%+ accuracy (Q2 2026)
+- [ ] **v3.0** - Multi-language CLI (Node.js, Go) (Q3 2026)
 
-See [ROADMAP.md](docs/ROADMAP.md) for detailed plans.
+See [docs/ANALYZERS_DEEP_DIVE.md](docs/ANALYZERS_DEEP_DIVE.md) for analyzer documentation.
 
 ---
 

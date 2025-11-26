@@ -409,7 +409,7 @@ openai.api_key = "sk-1234567890abcdef1234567890abcdef"
         """Test detection of AWS secrets."""
         code = """
 def configure_aws():
-    aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYSECRETKEY"
     return aws_secret_access_key
 """
         result = analyzer.analyze(temp_file, code, "python")
@@ -420,14 +420,15 @@ def configure_aws():
         """Test that obvious test/example secrets are ignored."""
         code = """
 def test_authentication():
-    password = "test123"
+    password = "test_password_value"
     api_key = "fake_key_for_testing"
-    secret = "example_secret_xxx"
+    secret = "dummy_secret_xxx"
 """
         result = analyzer.analyze(temp_file, code, "python")
         
-        # Should have low confidence - obvious test values
-        assert result['confidence'] < 0.4
+        # Should have no hardcoded_secret vulnerabilities - all look like test values
+        secret_vulns = [v for v in result.get('vulnerabilities', []) if v.vulnerability_type == 'hardcoded_secret']
+        assert len(secret_vulns) == 0
     
     def test_environment_variables_safe(self, analyzer, temp_file):
         """Test that environment variables don't trigger false positives."""

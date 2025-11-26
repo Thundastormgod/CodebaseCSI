@@ -3,3 +3,23 @@
 
 # Optional dependencies (uncomment if needed)
 # PyYAML>=6.0  # For YAML config file support
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OPTIONAL: Tree-sitter for Multi-Language AST Support
+# ═══════════════════════════════════════════════════════════════════════════════
+# Uncomment these for deep AST analysis across 10+ languages
+# Without these, the tool uses Python's built-in ast + regex fallback
+
+# tree-sitter>=0.21.0  # Core tree-sitter library
+
+# Language grammars (install the ones you need):
+# tree-sitter-python>=0.21.0
+# tree-sitter-javascript>=0.21.0
+# tree-sitter-typescript>=0.21.0
+# tree-sitter-java>=0.21.0
+# tree-sitter-go>=0.21.0
+# tree-sitter-rust>=0.21.0
+# tree-sitter-ruby>=0.21.0
+# tree-sitter-php>=0.21.0
+# tree-sitter-c>=0.21.0
+# tree-sitter-cpp>=0.21.0

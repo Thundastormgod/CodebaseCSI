@@ -188,18 +188,18 @@ class TestEmojiDetection:
     
     def test_context_detection_comment(self):
         """Test context detection for comments."""
-        context = self.detector._detect_context("# This is a comment 🚀", 20)
+        context = self.detector._detect_context("# This is a comment 🚀", 20, 'python')
         assert context == 'comment'
         
-        context = self.detector._detect_context("// JavaScript comment ✅", 23)
+        context = self.detector._detect_context("// JavaScript comment ✅", 23, 'javascript')
         assert context == 'comment'
     
     def test_context_detection_string(self):
         """Test context detection for string literals."""
-        context = self.detector._detect_context('message = "Hello 🌍"', 17)
+        context = self.detector._detect_context('message = "Hello 🌍"', 17, 'python')
         assert context == 'string'
         
-        context = self.detector._detect_context("text = 'World ✨'", 14)
+        context = self.detector._detect_context("text = 'World ✨'", 14, 'python')
         assert context == 'string'
     
     def test_unicode_representation(self):

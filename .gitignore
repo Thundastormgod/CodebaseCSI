@@ -127,12 +127,36 @@ IMPLEMENTATION_SUMMARY.md
 IMPROVEMENTS.md
 QUICK_SETUP.md
 
+# Non-official docs folder files (keep only docs/official/)
+docs/ANALYZERS_DEEP_DIVE.md
+docs/API_DOCUMENTATION.md
+docs/*.md
+!docs/official/
+
 # VS Code extension internal docs
 ide-integration/vscode-extension/PUBLISHING_GUIDE.md
 
 # ML integration docs (internal planning)
 ml-integration/ML_INTEGRATION_PLAN.md
 ml-integration/README.md
+
+# ==========================================
+# GENERATED FILES & SCRIPTS
+# ==========================================
+# Analysis reports (generated output)
+*_report.json
+*_report.html
+*_report.md
+codebase_analysis_report.*
+codebase_scan_report.*
+
+# Debug and test scripts (not part of package)
+debug_*.py
+integration_test.py
+run_integration_test.py
+
+# Example/utility scripts (keep scan_and_report.py as example)
+# scan_and_report.py is tracked as an example script
 
 # ==========================================
 # PRODUCTION DOCUMENTATION STRUCTURE

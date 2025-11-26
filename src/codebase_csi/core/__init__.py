@@ -7,11 +7,13 @@ from codebase_csi.core.models import (
     DetectionResult,
     ProjectAnalysis
 )
+from codebase_csi.core.report_generator import ReportGenerator
 
 __all__ = [
     "AICodeDetector",
     "ConfidenceLevel",
     "FileAnalysis",
     "DetectionResult",
-    "ProjectAnalysis"
+    "ProjectAnalysis",
+    "ReportGenerator"
 ]
