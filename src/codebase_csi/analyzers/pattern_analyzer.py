@@ -110,8 +110,22 @@ class PatternAnalyzer:
         'self', 'cls', 'this', '_', '__',
         'item', 'items', 'elem', 'element',  # Common in loops - acceptable
         'count', 'total', 'sum', 'min', 'max', 'avg',  # Common aggregates
-        'key', 'val', 'value',  # Common in dicts
+        'key', 'val', 'value', 'values',  # Common in dicts
         'idx', 'index', 'row', 'col',  # Common in arrays
+        # Additional common legitimate names (added v2.1)
+        'content', 'text', 'line', 'lines',  # Text processing
+        'path', 'name', 'id', 'url', 'uri',  # Common identifiers
+        'msg', 'message', 'code',  # Messaging
+        'p', 'q', 'r', 's', 't',  # Short math/physics vars
+        'match', 'matches', 'pattern', 'patterns',  # Regex work
+        'func', 'method', 'callback',  # Function refs
+        'num', 'size', 'length', 'width', 'height',  # Measurements
+        'start', 'end', 'pos', 'offset', 'limit',  # Ranges
+        'src', 'dst', 'source', 'target', 'dest',  # Source/dest
+        'tokens', 'token', 'char', 'chars',  # Parsing
+        'identifier', 'identifiers',  # Meta-programming
+        'severity', 'confidence', 'score',  # Scoring
+        'language', 'lang',  # Language detection context
     })
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -200,6 +214,90 @@ class PatternAnalyzer:
             'csharp': re.compile(r'^\s*(?://|/\*|\*)'),
         }
     
+    def _get_docstring_lines(self, lines: List[str], language: str) -> Set[int]:
+        """
+        Identify line numbers that are inside docstrings or multi-line string literals.
+        
+        This prevents false positives from detecting patterns in documentation.
+        Returns a set of 1-indexed line numbers that should be skipped.
+        """
+        docstring_lines: Set[int] = set()
+        
+        if language not in ('python', 'javascript', 'typescript'):
+            # For other languages, only handle block comments
+            in_block_comment = False
+            for line_num, line in enumerate(lines, 1):
+                stripped = line.strip()
+                if language in ('java', 'csharp', 'go', 'rust', 'c', 'cpp'):
+                    if '/*' in stripped and '*/' not in stripped:
+                        in_block_comment = True
+                        docstring_lines.add(line_num)
+                    elif '*/' in stripped:
+                        docstring_lines.add(line_num)
+                        in_block_comment = False
+                    elif in_block_comment:
+                        docstring_lines.add(line_num)
+            return docstring_lines
+        
+        # Python: Track triple-quoted strings (docstrings)
+        in_triple_double = False
+        in_triple_single = False
+        
+        for line_num, line in enumerate(lines, 1):
+            # Count unescaped triple quotes
+            triple_double_count = len(re.findall(r'(?<!\\)"""', line))
+            triple_single_count = len(re.findall(r"(?<!\\)'''", line))
+            
+            # If we're inside a docstring, mark this line
+            if in_triple_double or in_triple_single:
+                docstring_lines.add(line_num)
+            
+            # Check for docstring start/end on this line
+            if triple_double_count > 0:
+                if in_triple_double:
+                    # Closing a docstring
+                    in_triple_double = triple_double_count % 2 == 0  # Even = still inside
+                else:
+                    # Opening a new docstring (or single-line docstring)
+                    docstring_lines.add(line_num)
+                    in_triple_double = triple_double_count % 2 == 1  # Odd = now inside
+            
+            if triple_single_count > 0:
+                if in_triple_single:
+                    in_triple_single = triple_single_count % 2 == 0
+                else:
+                    docstring_lines.add(line_num)
+                    in_triple_single = triple_single_count % 2 == 1
+        
+        return docstring_lines
+    
+    def _is_in_string_literal(self, line: str, column: int) -> bool:
+        """
+        Check if a position in a line is inside a string literal.
+        
+        This is a simpler check for single-line strings.
+        """
+        if column < 0 or column >= len(line):
+            return False
+        
+        # Track quote state up to the column
+        in_single = False
+        in_double = False
+        i = 0
+        while i < column:
+            char = line[i]
+            # Handle escape sequences
+            if char == '\\' and i + 1 < len(line):
+                i += 2
+                continue
+            if char == '"' and not in_single:
+                in_double = not in_double
+            elif char == "'" and not in_double:
+                in_single = not in_single
+            i += 1
+        
+        return in_single or in_double
+    
     def analyze(self, file_path: Path, content: str, language: str) -> Dict:
         """Analyze code for AI patterns with enterprise-grade detection."""
         lines = content.split('\n')
@@ -273,8 +371,28 @@ class PatternAnalyzer:
         )
         identifier_usage: Counter = Counter()
         
+        # Get docstring lines to skip (prevents false positives from documentation)
+        docstring_lines = self._get_docstring_lines(lines, language)
+        
+        # Common type hints to ignore
+        type_hints = frozenset({'list', 'dict', 'set', 'tuple', 'optional', 'union', 'any', 
+                                'callable', 'type', 'none', 'frozenset', 'sequence', 'mapping',
+                                'iterable', 'iterator', 'generator', 'coroutine', 'awaitable'})
+        
         for line_num, line in enumerate(lines, 1):
-            if self._is_comment_line(line, language):
+            # Skip comments and docstrings
+            if self._is_comment_line(line, language) or line_num in docstring_lines:
+                continue
+            
+            # Skip import lines (type hints, modules)
+            stripped = line.strip()
+            if stripped.startswith(('from typing import', 'from collections import', 'import ')):
+                continue
+            
+            # Skip lines that are primarily string literals (regex patterns, etc.)
+            # Count quotes - if line has significant string content, skip
+            quote_count = line.count("'") + line.count('"')
+            if quote_count >= 4:  # At least 2 complete string literals
                 continue
             
             line_lower = line.lower()
@@ -283,6 +401,14 @@ class PatternAnalyzer:
             for identifier in identifiers:
                 identifier = identifier.lower()
                 if identifier in self.ACCEPTABLE_NAMES:
+                    continue
+                
+                # Skip type hints
+                if identifier in type_hints:
+                    continue
+                
+                # Skip if identifier appears inside string literals
+                if self._is_in_string_literal(line, line_lower.find(identifier)):
                     continue
                 
                 identifier_usage[identifier] += 1
@@ -436,10 +562,19 @@ class PatternAnalyzer:
         number_pattern = re.compile(r'\b(\d+\.?\d*)\b')
         constant_pattern = re.compile(r'^\s*[A-Z_][A-Z0-9_]*\s*=')
         
+        # Get docstring lines to skip (prevents false positives from documentation)
+        docstring_lines = self._get_docstring_lines(lines, language)
+        
         for line_num, line in enumerate(lines, 1):
-            if self._is_comment_line(line.strip(), language):
+            # Skip comments and docstrings
+            if self._is_comment_line(line.strip(), language) or line_num in docstring_lines:
                 continue
             if constant_pattern.match(line):
+                continue
+            
+            # Skip lines that are primarily string literals (regex patterns, etc.)
+            quote_count = line.count("'") + line.count('"')
+            if quote_count >= 4:
                 continue
             
             for match in number_pattern.finditer(line):
@@ -450,6 +585,10 @@ class PatternAnalyzer:
                         if int(num) in self.ACCEPTABLE_NUMBERS:
                             continue
                     elif num in self.ACCEPTABLE_FLOATS:
+                        continue
+                    
+                    # Skip if number appears inside a string literal
+                    if self._is_in_string_literal(line, match.start()):
                         continue
                     
                     # Skip if number appears in comment portion of line
