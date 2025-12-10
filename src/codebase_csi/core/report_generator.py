@@ -19,6 +19,8 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from collections import Counter
 
+from codebase_csi.utils.file_utils import CodeSnippetExtractor
+
 
 @dataclass
 class FileAnalysis:
@@ -74,18 +76,19 @@ class ReportGenerator:
     """
     
     ANALYZER_WEIGHTS = {
-        'Pattern': 0.25,
-        'Statistical': 0.20,
-        'Security': 0.18,
-        'Emoji': 0.12,
-        'Architectural': 0.05,
-        'Comment': 0.05,
-        'Antipattern': 0.15,
+        'Pattern': 0.22,
+        'Statistical': 0.18,
+        'Security': 0.16,
+        'MockCode': 0.15,
+        'Emoji': 0.10,
+        'Architectural': 0.03,
+        'Comment': 0.04,
+        'Antipattern': 0.12,
     }
     
     def __init__(self):
-        """Initialize report generator."""
-        pass
+        """Initialize report generator with snippet extractor."""
+        self._snippet_extractor = CodeSnippetExtractor(context_lines=3, use_cache=True)
     
     def generate_report(
         self,
@@ -227,7 +230,7 @@ class ReportGenerator:
         )
     
     def _issue_to_dict(self, issue: Any, file_path: str, analyzer: str) -> Dict[str, Any]:
-        """Convert an issue object to a dictionary."""
+        """Convert an issue object to a dictionary with code snippet."""
         if hasattr(issue, '__dict__'):
             d = {k: v for k, v in issue.__dict__.items() if not k.startswith('_')}
         elif isinstance(issue, dict):
@@ -239,6 +242,7 @@ class ReportGenerator:
         d['analyzer'] = analyzer
         d.setdefault('severity', 'MEDIUM')
         d.setdefault('type', 'unknown')
+        
         # Normalized line number keys (support 'line' or 'line_number')
         line_no = d.get('line_number') or d.get('line') or d.get('lineno') or 0
         d['line_number'] = int(line_no) if isinstance(line_no, (int, str)) and str(line_no).isdigit() else 0
@@ -247,66 +251,18 @@ class ReportGenerator:
         detected = d.get('pattern') or d.get('type') or d.get('issue_type') or 'unknown'
         d['detected_pattern'] = detected
 
-        # Include a code snippet (3 lines before/after) for remediation context
-        d.setdefault('context', '')
-        d['code_snippet'] = self._extract_code_snippet(file_path, d['line_number'])
+        # Include code snippet (use existing or extract fresh)
+        # Prioritize existing snippet from analyzer, then extract from file
+        existing_snippet = d.get('code_snippet', '')
+        if not existing_snippet and d['line_number'] > 0:
+            d['code_snippet'] = self._snippet_extractor.extract(file_path, d['line_number'])
+        else:
+            d['code_snippet'] = existing_snippet
         
+        d.setdefault('context', '')
         d.setdefault('suggestion', '')
         
         return d
-    
-    def _extract_code_snippet(self, file_path: str, line_number: int, context_lines: int = 3) -> str:
-        """
-        Extract code snippet from file with line numbers.
-        
-        Args:
-            file_path: Path to the source file (absolute or relative)
-            line_number: Line number where issue was detected (1-based)
-            context_lines: Number of lines to show before and after (default: 3)
-            
-        Returns:
-            Formatted code snippet with line numbers, or empty string if unavailable
-        """
-        if not line_number or line_number <= 0:
-            return ''
-        
-        try:
-            # Handle both absolute and relative paths
-            path = Path(file_path)
-            if not path.is_absolute():
-                # Try relative to current working directory
-                path = Path.cwd() / path
-            
-            if not path.is_file():
-                return ''
-            
-            # Read file with error handling for encoding issues
-            src_lines = path.read_text(encoding='utf-8', errors='ignore').splitlines()
-            
-            if not src_lines or line_number > len(src_lines):
-                return ''
-            
-            # Calculate snippet boundaries (line_number is 1-based)
-            start_line = max(1, line_number - context_lines)
-            end_line = min(len(src_lines), line_number + context_lines)
-            
-            # Extract snippet (convert to 0-based indexing)
-            snippet_lines = src_lines[start_line - 1:end_line]
-            
-            # Format with line numbers and highlight the issue line
-            formatted_lines = []
-            for idx, line in enumerate(snippet_lines, start=start_line):
-                marker = ">>> " if idx == line_number else "    "
-                formatted_lines.append(f"{marker}{idx:>4} | {line}")
-            
-            return "\n".join(formatted_lines)
-            
-        except (OSError, IOError, UnicodeDecodeError) as e:
-            # File reading errors - return empty string silently
-            return ''
-        except Exception as e:
-            # Unexpected errors - log but don't fail the report
-            return f"[Error extracting snippet: {type(e).__name__}]"
     
     def _get_risk_level(self, confidence: float) -> str:
         """Determine risk level from confidence score."""

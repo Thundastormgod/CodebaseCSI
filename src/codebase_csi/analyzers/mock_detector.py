@@ -27,6 +27,8 @@ import re
 from typing import List, Dict, Any, Optional, Tuple, FrozenSet
 from dataclasses import dataclass, field
 
+from codebase_csi.utils.file_utils import CodeSnippetExtractor
+
 
 @dataclass
 class MockPattern:
@@ -197,20 +199,52 @@ class MockCodeDetector:
         self.name = "MockCode"
         self.version = "1.0"
         self.weight = 0.15  # Weight in overall confidence calculation
+        self._snippet_extractor = CodeSnippetExtractor(context_lines=2)
     
-    def analyze(self, content: str, file_path: str = "", language: str = "python") -> Dict[str, Any]:
+    def _get_contextual_snippet(self, content: str, line_number: int) -> str:
+        """
+        Extract a contextual code snippet using the centralized utility.
+        
+        Args:
+            content: Full file content
+            line_number: Line number where pattern was detected
+            
+        Returns:
+            Contextual code snippet with surrounding lines
+        """
+        return CodeSnippetExtractor.extract_from_content(
+            content=content,
+            line_number=line_number,
+            context_lines=2
+        )
+    
+    def analyze(self, content_or_path, content: str = None, language: str = "python") -> Dict[str, Any]:
         """
         Analyze code for mock/placeholder patterns.
         
+        Supports two calling conventions:
+        1. analyze(content) - for testing
+        2. analyze(file_path, content, language) - for production use
+        
         Args:
-            content: Source code content
-            file_path: Path to the file (for context)
+            content_or_path: Either source code content (str) or file path (Path)
+            content: Source code content (when file_path is provided)
             language: Programming language
             
         Returns:
             Analysis results with detected patterns and confidence
         """
-        if not content or not content.strip():
+        # Handle both calling conventions:
+        # 1. analyze(content) - content is in content_or_path
+        # 2. analyze(file_path, content, language) - content is in second arg
+        if content is None:
+            # First argument is the content (test mode)
+            actual_content = content_or_path
+        else:
+            # First argument is file_path (production mode)
+            actual_content = content
+        
+        if not actual_content or not actual_content.strip():
             return {
                 'confidence': 0.0,
                 'patterns': [],
@@ -218,31 +252,31 @@ class MockCodeDetector:
             }
         
         patterns: List[MockPattern] = []
-        lines = content.split('\n')
+        lines = actual_content.split('\n')
         
         # Phase 1: Detect placeholder strings
-        patterns.extend(self._detect_placeholder_strings(content, lines))
+        patterns.extend(self._detect_placeholder_strings(actual_content, lines))
         
         # Phase 2: Detect stub functions
-        patterns.extend(self._detect_stub_functions(content, lines))
+        patterns.extend(self._detect_stub_functions(actual_content, lines))
         
         # Phase 3: Detect always-success patterns
-        patterns.extend(self._detect_always_success(content, lines))
+        patterns.extend(self._detect_always_success(actual_content, lines))
         
         # Phase 4: Detect print-only implementations
-        patterns.extend(self._detect_print_only(content, lines))
+        patterns.extend(self._detect_print_only(actual_content, lines))
         
         # Phase 5: Detect fake data patterns
-        patterns.extend(self._detect_fake_data(content, lines))
+        patterns.extend(self._detect_fake_data(actual_content, lines))
         
         # Phase 6: Detect pass-through functions
-        patterns.extend(self._detect_passthrough(content, lines))
+        patterns.extend(self._detect_passthrough(actual_content, lines))
         
         # Phase 7: Detect TODO/incomplete markers
-        patterns.extend(self._detect_todo_markers(content, lines))
+        patterns.extend(self._detect_todo_markers(actual_content, lines))
         
         # Phase 8: Detect suspicious function names
-        patterns.extend(self._detect_mock_function_names(content, lines))
+        patterns.extend(self._detect_mock_function_names(actual_content, lines))
         
         # Calculate overall confidence
         confidence = self._calculate_confidence(patterns, len(lines))
@@ -265,7 +299,7 @@ class MockCodeDetector:
         for regex, confidence, pattern_type in self.PLACEHOLDER_PATTERNS:
             for match in regex.finditer(content):
                 line_num = content[:match.start()].count('\n') + 1
-                snippet = lines[line_num - 1].strip() if line_num <= len(lines) else match.group()
+                snippet = self._get_contextual_snippet(content, line_num)
                 
                 patterns.append(MockPattern(
                     pattern_type=f"placeholder_{pattern_type}",
@@ -286,7 +320,7 @@ class MockCodeDetector:
         for regex, confidence, pattern_type in self.STUB_PATTERNS:
             for match in regex.finditer(content):
                 line_num = content[:match.start()].count('\n') + 1
-                snippet = match.group().strip()[:100]
+                snippet = self._get_contextual_snippet(content, line_num)
                 
                 severity = "CRITICAL" if pattern_type in ('always_true', 'pass_only') else "HIGH"
                 
@@ -309,7 +343,7 @@ class MockCodeDetector:
         for regex, confidence, pattern_type in self.ALWAYS_SUCCESS_PATTERNS:
             for match in regex.finditer(content):
                 line_num = content[:match.start()].count('\n') + 1
-                snippet = match.group().strip()[:100]
+                snippet = self._get_contextual_snippet(content, line_num)
                 
                 patterns.append(MockPattern(
                     pattern_type=f"always_success_{pattern_type}",
@@ -330,7 +364,7 @@ class MockCodeDetector:
         for regex, confidence, pattern_type in self.PRINT_ONLY_PATTERNS:
             for match in regex.finditer(content):
                 line_num = content[:match.start()].count('\n') + 1
-                snippet = match.group().strip()[:100]
+                snippet = self._get_contextual_snippet(content, line_num)
                 
                 patterns.append(MockPattern(
                     pattern_type=f"print_only_{pattern_type}",
@@ -351,7 +385,7 @@ class MockCodeDetector:
         for regex, confidence, pattern_type in self.FAKE_DATA_PATTERNS:
             for match in regex.finditer(content):
                 line_num = content[:match.start()].count('\n') + 1
-                snippet = match.group().strip()[:100]
+                snippet = self._get_contextual_snippet(content, line_num)
                 
                 # Lower severity for empty returns (might be intentional)
                 severity = "MEDIUM" if 'empty' in pattern_type else "HIGH"
@@ -375,7 +409,7 @@ class MockCodeDetector:
         for regex, confidence, pattern_type in self.PASS_THROUGH_PATTERNS:
             for match in regex.finditer(content):
                 line_num = content[:match.start()].count('\n') + 1
-                snippet = match.group().strip()[:100]
+                snippet = self._get_contextual_snippet(content, line_num)
                 
                 patterns.append(MockPattern(
                     pattern_type=f"passthrough_{pattern_type}",
@@ -396,7 +430,7 @@ class MockCodeDetector:
         for regex, confidence, pattern_type in self.TODO_PATTERNS:
             for match in regex.finditer(content):
                 line_num = content[:match.start()].count('\n') + 1
-                snippet = lines[line_num - 1].strip() if line_num <= len(lines) else match.group()
+                snippet = self._get_contextual_snippet(content, line_num)
                 
                 patterns.append(MockPattern(
                     pattern_type=f"todo_{pattern_type}",
@@ -416,7 +450,7 @@ class MockCodeDetector:
         
         for match in self.MOCK_FUNCTION_PATTERN.finditer(content):
             line_num = content[:match.start()].count('\n') + 1
-            snippet = lines[line_num - 1].strip() if line_num <= len(lines) else match.group()
+            snippet = self._get_contextual_snippet(content, line_num)
             
             # Skip if in a test file
             if 'test' in str(content).lower()[:100]:

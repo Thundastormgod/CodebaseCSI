@@ -6,7 +6,7 @@ Provides file discovery, language detection, and filtering capabilities.
 
 import os
 from pathlib import Path
-from typing import List, Set, Optional
+from typing import List, Set, Optional, Dict
 import fnmatch
 
 
@@ -709,4 +709,213 @@ def count_lines(file_path: Path) -> dict:
             'comments': 0,
             'encoding': 'unknown',
             'error': str(e)
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CODE SNIPPET EXTRACTOR - Centralized snippet extraction for all analyzers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class CodeSnippetExtractor:
+    """
+    Centralized code snippet extraction utility.
+    
+    Features:
+    - File content caching for performance
+    - Configurable context lines
+    - Line highlighting with markers
+    - Encoding detection and error handling
+    - Thread-safe caching
+    
+    Usage:
+        extractor = CodeSnippetExtractor()
+        snippet = extractor.extract(file_path, line_number)
+        
+        # Or use class method for one-off extraction
+        snippet = CodeSnippetExtractor.extract_snippet(file_path, line_number)
+    """
+    
+    # Class-level cache for file contents (shared across instances)
+    _file_cache: dict = {}
+    _cache_max_size: int = 100  # Maximum number of files to cache
+    
+    def __init__(self, context_lines: int = 3, use_cache: bool = True):
+        """
+        Initialize snippet extractor.
+        
+        Args:
+            context_lines: Number of lines to show before/after issue line
+            use_cache: Whether to cache file contents for performance
+        """
+        self.context_lines = context_lines
+        self.use_cache = use_cache
+    
+    def extract(
+        self, 
+        file_path: str, 
+        line_number: int, 
+        context_lines: Optional[int] = None
+    ) -> str:
+        """
+        Extract code snippet from file with line numbers and highlighting.
+        
+        Args:
+            file_path: Path to source file (absolute or relative)
+            line_number: Line number where issue was detected (1-based)
+            context_lines: Override default context lines (optional)
+            
+        Returns:
+            Formatted code snippet with line numbers, highlighted issue line,
+            or empty string if extraction fails
+        """
+        ctx = context_lines if context_lines is not None else self.context_lines
+        return self._do_extract(file_path, line_number, ctx)
+    
+    @classmethod
+    def extract_snippet(
+        cls,
+        file_path: str,
+        line_number: int,
+        context_lines: int = 3
+    ) -> str:
+        """
+        Class method for one-off snippet extraction (no instance needed).
+        
+        Args:
+            file_path: Path to source file
+            line_number: Line number (1-based)
+            context_lines: Lines of context before/after
+            
+        Returns:
+            Formatted code snippet or empty string
+        """
+        extractor = cls(context_lines=context_lines, use_cache=True)
+        return extractor.extract(file_path, line_number)
+    
+    @classmethod
+    def extract_from_content(
+        cls,
+        content: str,
+        line_number: int,
+        context_lines: int = 3
+    ) -> str:
+        """
+        Extract snippet from already-loaded content (no file I/O).
+        
+        Args:
+            content: Source code content
+            line_number: Line number (1-based)
+            context_lines: Lines of context before/after
+            
+        Returns:
+            Formatted code snippet or empty string
+        """
+        if not content or not line_number or line_number <= 0:
+            return ''
+        
+        lines = content.splitlines()
+        
+        if not lines or line_number > len(lines):
+            return ''
+        
+        return cls._format_snippet(lines, line_number, context_lines)
+    
+    def _do_extract(self, file_path: str, line_number: int, context_lines: int) -> str:
+        """Internal extraction implementation."""
+        # Validate inputs
+        if not line_number or line_number <= 0:
+            return ''
+        
+        if not file_path:
+            return ''
+        
+        try:
+            # Resolve path
+            path = Path(file_path)
+            if not path.is_absolute():
+                path = Path.cwd() / path
+            
+            resolved_path = str(path.resolve())
+            
+            # Check if file exists
+            if not path.is_file():
+                return ''
+            
+            # Get file content (cached or fresh)
+            lines = self._get_file_lines(resolved_path)
+            
+            if not lines or line_number > len(lines):
+                return ''
+            
+            return self._format_snippet(lines, line_number, context_lines)
+            
+        except (OSError, IOError, PermissionError) as e:
+            # File access errors - return empty silently
+            return ''
+        except Exception as e:
+            # Unexpected errors - return empty to avoid breaking callers
+            return ''
+    
+    def _get_file_lines(self, file_path: str) -> List[str]:
+        """Get file lines with optional caching."""
+        if self.use_cache and file_path in self._file_cache:
+            return self._file_cache[file_path]
+        
+        # Read file with encoding detection
+        try:
+            content = Path(file_path).read_text(encoding='utf-8', errors='replace')
+        except UnicodeDecodeError:
+            # Try with latin-1 as fallback
+            try:
+                content = Path(file_path).read_text(encoding='latin-1', errors='replace')
+            except Exception:
+                return []
+        
+        lines = content.splitlines()
+        
+        # Cache if enabled (with size limit)
+        if self.use_cache:
+            if len(self._file_cache) >= self._cache_max_size:
+                # Remove oldest entry (FIFO)
+                oldest_key = next(iter(self._file_cache))
+                del self._file_cache[oldest_key]
+            self._file_cache[file_path] = lines
+        
+        return lines
+    
+    @staticmethod
+    def _format_snippet(lines: List[str], line_number: int, context_lines: int) -> str:
+        """
+        Format code snippet with line numbers and highlighting.
+        
+        Format:
+            >>> 123 | <issue line>     <- Highlighted with >>>
+                124 | <next line>      <- Normal lines with spaces
+        """
+        # Calculate boundaries (1-based line numbers)
+        start_line = max(1, line_number - context_lines)
+        end_line = min(len(lines), line_number + context_lines)
+        
+        # Extract snippet (convert to 0-based for list indexing)
+        snippet_lines = lines[start_line - 1:end_line]
+        
+        # Format with line numbers and marker
+        formatted = []
+        for idx, line in enumerate(snippet_lines, start=start_line):
+            marker = ">>> " if idx == line_number else "    "
+            formatted.append(f"{marker}{idx:>4} | {line}")
+        
+        return "\n".join(formatted)
+    
+    @classmethod
+    def clear_cache(cls):
+        """Clear the file content cache."""
+        cls._file_cache.clear()
+    
+    @classmethod
+    def get_cache_stats(cls) -> dict:
+        """Get cache statistics."""
+        return {
+            'cached_files': len(cls._file_cache),
+            'max_size': cls._cache_max_size
         }

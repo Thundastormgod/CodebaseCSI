@@ -167,7 +167,10 @@ class DetectionResult:
     def get_detailed_report(self) -> Dict[str, Any]:
         """Get detailed report with code snippets for remediation."""
         from pathlib import Path
-        import os
+        from codebase_csi.utils.file_utils import CodeSnippetExtractor
+        
+        # Initialize snippet extractor with caching for performance
+        extractor = CodeSnippetExtractor(context_lines=3, use_cache=True)
         
         # Determine base path for relative paths
         target_path = Path(self.target_path).resolve() if self.target_path else Path.cwd()
@@ -193,37 +196,6 @@ class DetectionResult:
             except Exception:
                 return file_path
         
-        def extract_code_snippet(file_path: str, line_number: int, context_lines: int = 3) -> str:
-            """Extract code snippet with line numbers."""
-            if not line_number or line_number <= 0:
-                return ''
-            
-            try:
-                path = Path(file_path)
-                if not path.is_absolute():
-                    path = Path.cwd() / path
-                
-                if not path.is_file():
-                    return ''
-                
-                src_lines = path.read_text(encoding='utf-8', errors='ignore').splitlines()
-                
-                if not src_lines or line_number > len(src_lines):
-                    return ''
-                
-                start_line = max(1, line_number - context_lines)
-                end_line = min(len(src_lines), line_number + context_lines)
-                snippet_lines = src_lines[start_line - 1:end_line]
-                
-                formatted_lines = []
-                for idx, line in enumerate(snippet_lines, start=start_line):
-                    marker = ">>> " if idx == line_number else "    "
-                    formatted_lines.append(f"{marker}{idx:>4} | {line}")
-                
-                return "\n".join(formatted_lines)
-            except Exception:
-                return ''
-        
         # Collect all issues with code snippets
         all_issues = []
         for file_analysis in self.file_analyses:
@@ -239,6 +211,8 @@ class DetectionResult:
                     severity = pattern.get('severity', 'MEDIUM')
                     message = pattern.get('description') or pattern.get('message') or str(pattern_type)
                     suggestion = pattern.get('suggestion', '')
+                    # Use existing code_snippet if available, otherwise extract
+                    code_snippet = pattern.get('code_snippet', '')
                 else:
                     line_num = getattr(pattern, 'line_number', 0)
                     pattern_type = getattr(pattern, 'pattern_type', 'unknown')
@@ -246,6 +220,11 @@ class DetectionResult:
                     severity = getattr(pattern, 'severity', 'MEDIUM')
                     message = getattr(pattern, 'description', str(pattern_type))
                     suggestion = getattr(pattern, 'suggestion', '')
+                    code_snippet = getattr(pattern, 'code_snippet', '')
+                
+                # Extract snippet if not already present and line number is valid
+                if not code_snippet and line_num and line_num > 0:
+                    code_snippet = extractor.extract(file_path_str, line_num)
                 
                 issue = {
                     "file": relative_path,
@@ -256,7 +235,7 @@ class DetectionResult:
                     "confidence": round(confidence, 4),
                     "severity": severity,
                     "message": message,
-                    "code_snippet": extract_code_snippet(file_path_str, line_num),
+                    "code_snippet": code_snippet,
                     "suggestion": suggestion
                 }
                 all_issues.append(issue)
