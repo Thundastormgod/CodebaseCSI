@@ -25,6 +25,7 @@ from codebase_csi.analyzers.emoji_detector import EmojiDetector
 from codebase_csi.analyzers.pattern_analyzer import PatternAnalyzer
 from codebase_csi.analyzers.statistical_analyzer import StatisticalAnalyzer
 from codebase_csi.analyzers.security_analyzer import SecurityAnalyzer
+from codebase_csi.analyzers.mock_detector import MockCodeDetector
 
 
 logger = get_logger(__name__)
@@ -108,6 +109,9 @@ class AICodeDetector:
             self.register_analyzer('architectural', ArchitecturalAnalyzer())
         except ImportError:
             logger.warning("Architectural analyzer not available")
+        
+        # Mock Code Detector - 15% weight (placeholder/stub implementations)
+        self.register_analyzer('mock', MockCodeDetector())
         
         logger.info(f"Registered {len(self.analyzers)} default analyzers")
     

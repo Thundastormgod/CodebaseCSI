@@ -9,6 +9,7 @@ from codebase_csi.analyzers.architectural_analyzer import ArchitecturalAnalyzer
 from codebase_csi.analyzers.comment_analyzer import CommentAnalyzer
 from codebase_csi.analyzers.antipattern_analyzer import AntipatternAnalyzer
 from codebase_csi.analyzers.dev_doc_analyzer import DevDocAnalyzer
+from codebase_csi.analyzers.mock_detector import MockCodeDetector
 
 __all__ = [
     'EmojiDetector',
@@ -20,4 +21,5 @@ __all__ = [
     'CommentAnalyzer',
     'AntipatternAnalyzer',
     'DevDocAnalyzer',
+    'MockCodeDetector',
 ]
