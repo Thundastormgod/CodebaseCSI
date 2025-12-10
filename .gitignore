@@ -50,15 +50,23 @@ venv/
 env/
 
 # ==========================================
-# DEVELOPMENT DOCUMENTATION (NOT FOR PRODUCTION)
-# Only official docs in docs/official/ will be tracked
+# DOCUMENTATION POLICY
+# Track: docs/official/ (governance) and docs/*.md (technical documentation)
+# Exclude: docs/development/ (working drafts), old doc folders
 # ==========================================
 
-# Exclude entire development documentation folder
+# Exclude development/draft documentation
 docs/development/
+docs/drafts/
+docs/temp/
+docs/wip/
 
 # Exclude old docs folders
 CodebaseCSI-DOCs/
+
+# Explicitly track important documentation
+!docs/*.md
+!docs/official/
 
 # Virtual environments
 ENV/

@@ -239,11 +239,74 @@ class ReportGenerator:
         d['analyzer'] = analyzer
         d.setdefault('severity', 'MEDIUM')
         d.setdefault('type', 'unknown')
-        d.setdefault('line_number', 0)
+        # Normalized line number keys (support 'line' or 'line_number')
+        line_no = d.get('line_number') or d.get('line') or d.get('lineno') or 0
+        d['line_number'] = int(line_no) if isinstance(line_no, (int, str)) and str(line_no).isdigit() else 0
+
+        # Detected pattern/type for remediation guidance
+        detected = d.get('pattern') or d.get('type') or d.get('issue_type') or 'unknown'
+        d['detected_pattern'] = detected
+
+        # Include a code snippet (3 lines before/after) for remediation context
         d.setdefault('context', '')
+        d['code_snippet'] = self._extract_code_snippet(file_path, d['line_number'])
+        
         d.setdefault('suggestion', '')
         
         return d
+    
+    def _extract_code_snippet(self, file_path: str, line_number: int, context_lines: int = 3) -> str:
+        """
+        Extract code snippet from file with line numbers.
+        
+        Args:
+            file_path: Path to the source file (absolute or relative)
+            line_number: Line number where issue was detected (1-based)
+            context_lines: Number of lines to show before and after (default: 3)
+            
+        Returns:
+            Formatted code snippet with line numbers, or empty string if unavailable
+        """
+        if not line_number or line_number <= 0:
+            return ''
+        
+        try:
+            # Handle both absolute and relative paths
+            path = Path(file_path)
+            if not path.is_absolute():
+                # Try relative to current working directory
+                path = Path.cwd() / path
+            
+            if not path.is_file():
+                return ''
+            
+            # Read file with error handling for encoding issues
+            src_lines = path.read_text(encoding='utf-8', errors='ignore').splitlines()
+            
+            if not src_lines or line_number > len(src_lines):
+                return ''
+            
+            # Calculate snippet boundaries (line_number is 1-based)
+            start_line = max(1, line_number - context_lines)
+            end_line = min(len(src_lines), line_number + context_lines)
+            
+            # Extract snippet (convert to 0-based indexing)
+            snippet_lines = src_lines[start_line - 1:end_line]
+            
+            # Format with line numbers and highlight the issue line
+            formatted_lines = []
+            for idx, line in enumerate(snippet_lines, start=start_line):
+                marker = ">>> " if idx == line_number else "    "
+                formatted_lines.append(f"{marker}{idx:>4} | {line}")
+            
+            return "\n".join(formatted_lines)
+            
+        except (OSError, IOError, UnicodeDecodeError) as e:
+            # File reading errors - return empty string silently
+            return ''
+        except Exception as e:
+            # Unexpected errors - log but don't fail the report
+            return f"[Error extracting snippet: {type(e).__name__}]"
     
     def _get_risk_level(self, confidence: float) -> str:
         """Determine risk level from confidence score."""

@@ -164,6 +164,122 @@ class DetectionResult:
             "errors": len(self.errors)
         }
     
+    def get_detailed_report(self) -> Dict[str, Any]:
+        """Get detailed report with code snippets for remediation."""
+        from pathlib import Path
+        import os
+        
+        # Determine base path for relative paths
+        target_path = Path(self.target_path).resolve() if self.target_path else Path.cwd()
+        if target_path.is_file():
+            base_path = target_path.parent
+        else:
+            base_path = target_path
+        
+        def get_relative_path(file_path: str) -> str:
+            """Convert absolute path to relative path from scan target."""
+            try:
+                abs_path = Path(file_path).resolve()
+                # Try relative to base path first
+                try:
+                    return str(abs_path.relative_to(base_path))
+                except ValueError:
+                    # Try relative to current working directory
+                    try:
+                        return str(abs_path.relative_to(Path.cwd()))
+                    except ValueError:
+                        # Fall back to just the filename with parent
+                        return str(Path(abs_path.parent.name) / abs_path.name)
+            except Exception:
+                return file_path
+        
+        def extract_code_snippet(file_path: str, line_number: int, context_lines: int = 3) -> str:
+            """Extract code snippet with line numbers."""
+            if not line_number or line_number <= 0:
+                return ''
+            
+            try:
+                path = Path(file_path)
+                if not path.is_absolute():
+                    path = Path.cwd() / path
+                
+                if not path.is_file():
+                    return ''
+                
+                src_lines = path.read_text(encoding='utf-8', errors='ignore').splitlines()
+                
+                if not src_lines or line_number > len(src_lines):
+                    return ''
+                
+                start_line = max(1, line_number - context_lines)
+                end_line = min(len(src_lines), line_number + context_lines)
+                snippet_lines = src_lines[start_line - 1:end_line]
+                
+                formatted_lines = []
+                for idx, line in enumerate(snippet_lines, start=start_line):
+                    marker = ">>> " if idx == line_number else "    "
+                    formatted_lines.append(f"{marker}{idx:>4} | {line}")
+                
+                return "\n".join(formatted_lines)
+            except Exception:
+                return ''
+        
+        # Collect all issues with code snippets
+        all_issues = []
+        for file_analysis in self.file_analyses:
+            file_path_str = str(file_analysis.file_path)
+            relative_path = get_relative_path(file_path_str)
+            
+            for pattern in file_analysis.patterns:
+                # Handle both dict and object patterns
+                if isinstance(pattern, dict):
+                    line_num = pattern.get('line_number') or pattern.get('line') or pattern.get('lineno') or 0
+                    pattern_type = pattern.get('pattern_type') or pattern.get('type') or 'unknown'
+                    confidence = pattern.get('confidence', 0.0)
+                    severity = pattern.get('severity', 'MEDIUM')
+                    message = pattern.get('description') or pattern.get('message') or str(pattern_type)
+                    suggestion = pattern.get('suggestion', '')
+                else:
+                    line_num = getattr(pattern, 'line_number', 0)
+                    pattern_type = getattr(pattern, 'pattern_type', 'unknown')
+                    confidence = getattr(pattern, 'confidence', 0.0)
+                    severity = getattr(pattern, 'severity', 'MEDIUM')
+                    message = getattr(pattern, 'description', str(pattern_type))
+                    suggestion = getattr(pattern, 'suggestion', '')
+                
+                issue = {
+                    "file": relative_path,
+                    "file_absolute": file_path_str,
+                    "language": file_analysis.language,
+                    "line_number": line_num,
+                    "detected_pattern": pattern_type,
+                    "confidence": round(confidence, 4),
+                    "severity": severity,
+                    "message": message,
+                    "code_snippet": extract_code_snippet(file_path_str, line_num),
+                    "suggestion": suggestion
+                }
+                all_issues.append(issue)
+        
+        # Sort by severity
+        severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
+        all_issues.sort(key=lambda x: (severity_order.get(x['severity'], 4), -x['confidence']))
+        
+        # Build detailed report
+        report = self.get_summary()
+        report["issues"] = {
+            "total": len(all_issues),
+            "by_severity": {
+                "critical": len([i for i in all_issues if i['severity'] == 'CRITICAL']),
+                "high": len([i for i in all_issues if i['severity'] == 'HIGH']),
+                "medium": len([i for i in all_issues if i['severity'] == 'MEDIUM']),
+                "low": len([i for i in all_issues if i['severity'] == 'LOW'])
+            },
+            "details": all_issues
+        }
+        
+        return report
+    
     def __str__(self) -> str:
         return (
             f"Scan {self.scan_id}: {self.scanned_files} files, "

@@ -153,6 +153,12 @@ def add_scan_arguments(parser: argparse.ArgumentParser):
         action='store_true',
         help='Do not scan subdirectories'
     )
+    
+    parser.add_argument(
+        '--detailed',
+        action='store_true',
+        help='Generate detailed report with code snippets and remediation guidance'
+    )
 
 
 def add_cicd_arguments(parser: argparse.ArgumentParser):
@@ -282,7 +288,11 @@ def command_scan(args) -> int:
             
             # Format output
             if args.format == 'json':
-                output = json.dumps(result.get_summary(), indent=2)
+                # Use detailed report if requested (includes code snippets and remediation)
+                if hasattr(args, 'detailed') and args.detailed:
+                    output = json.dumps(result.get_detailed_report(), indent=2)
+                else:
+                    output = json.dumps(result.get_summary(), indent=2)
             elif args.format == 'text':
                 output = format_text_report(result)
             else:
